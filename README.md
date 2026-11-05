@@ -5,7 +5,7 @@ Aplicação de pesquisa para aprendizagem de idiomas por conversas e atividades 
 ## Executar localmente
 
 1. Instale [Bun](https://bun.sh/) e copie `.env.example` para `.env`.
-2. Defina `RESEARCHER_PIN` com um segredo longo e aleatório. Configure `GOOGLE_API_KEY` para usar o provedor Gemini; sem ela, o aplicativo usa o modo alternativo previsto no código.
+2. Defina `RESEARCHER_PIN` com um segredo longo e aleatório. Configure `GOOGLE_API_KEY` para Gemini (principal) e `GROQ_API_KEY` para Groq (fallback). Os modelos padrão são `gemini-2.5-flash` e `openai/gpt-oss-120b`; altere `GOOGLE_MODEL` ou `GROQ_MODEL` se necessário. Se ambas as APIs falharem, o app usa uma resposta local por regras. Não coloque chaves no repositório.
 3. Execute `bun install --frozen-lockfile`, `bun run db:generate`, `bun run db:push` e `bun run dev`.
 4. Abra `http://localhost:3000`.
 
@@ -19,7 +19,7 @@ Execute `bun run lint` e `bun run build`.
 
 - `src/`: aplicação e rotas de API.
 - `prisma/`: esquema e dados iniciais.
-- `apresentacao/`: materiais de apresentação e identidade visual.
+- `apresentacao/`: materiais de apresentação, questionários e identidade visual.
 - `public/marca/`: arquivos de marca usados pela aplicação.
 - `scripts/`: scripts auxiliares.
 

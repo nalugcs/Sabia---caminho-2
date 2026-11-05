@@ -351,7 +351,7 @@ export function Pesquisadora() {
                   </p>
                 )}
                 <p className="mt-4 text-xs text-muted-foreground leading-relaxed">
-                  Cada fallback (Google → GLM → regra local) é registrado para a seção de
+                  Cada fallback (Gemini → Groq → regra local) é registrado para a seção de
                   confiabilidade do TCC: a lição nunca para por indisponibilidade de API.
                 </p>
               </CardContent>

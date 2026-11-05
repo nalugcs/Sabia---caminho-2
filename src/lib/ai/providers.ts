@@ -1,10 +1,9 @@
-// Camada de provedores de IA: Google Gemini (API) → GLM (z-ai SDK) → fallback local.
-// Arquitetura defensiva validada no orquestrador: API externa → modelo do ambiente → regra local.
+// Camada de provedores de IA: Gemini → Groq → resposta local.
 
 import { Semaphoro, comRetry, comTimeout } from "./semaphore";
 import { db } from "@/lib/db";
 
-export type ProvedorId = "google" | "glm" | "local";
+export type ProvedorId = "google" | "groq" | "local";
 
 export interface RespostaIA {
   texto: string;
@@ -14,16 +13,6 @@ export interface RespostaIA {
 
 const semaforo = new Semaphoro(2);
 const TIMEOUT_MS = 45000;
-
-let zaiInstancia: Awaited<ReturnType<typeof import("z-ai-web-dev-sdk").default.create>> | null = null;
-
-async function obterZai() {
-  if (!zaiInstancia) {
-    const ZAI = (await import("z-ai-web-dev-sdk")).default;
-    zaiInstancia = await ZAI.create();
-  }
-  return zaiInstancia;
-}
 
 async function registrarIncidente(type: string, provider: string, detail: string) {
   try {
@@ -37,12 +26,12 @@ async function registrarIncidente(type: string, provider: string, detail: string
 async function chamarGoogle(prompt: string): Promise<string> {
   const key = process.env.GOOGLE_API_KEY;
   if (!key) throw new Error("GOOGLE_API_KEY ausente");
-  const model = process.env.GOOGLE_MODEL || "gemini-2.0-flash";
+  const model = process.env.GOOGLE_MODEL || "gemini-2.5-flash";
   const resp = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "x-goog-api-key": key },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: { temperature: 0.7, maxOutputTokens: 1400 },
@@ -59,15 +48,24 @@ async function chamarGoogle(prompt: string): Promise<string> {
   return texto;
 }
 
-// ---------- Provedor 2: GLM via z-ai-web-dev-sdk (ambiente) ----------
-async function chamarGlm(prompt: string): Promise<string> {
-  const zai = await obterZai();
-  const completion = await zai.chat.completions.create({
-    messages: [{ role: "user", content: prompt }],
-    temperature: 0.7,
+// ---------- Provedor 2: Groq via API REST ----------
+async function chamarGroq(prompt: string): Promise<string> {
+  const key = process.env.GROQ_API_KEY;
+  if (!key) throw new Error("GROQ_API_KEY ausente");
+  const resp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+    body: JSON.stringify({
+      model: process.env.GROQ_MODEL || "openai/gpt-oss-120b",
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.7,
+      max_completion_tokens: 1400,
+    }),
   });
-  const texto = completion?.choices?.[0]?.message?.content || "";
-  if (!texto.trim()) throw new Error("GLM retornou vazio");
+  if (!resp.ok) throw new Error(`Groq HTTP ${resp.status}`);
+  const json = await resp.json();
+  const texto = json?.choices?.[0]?.message?.content || "";
+  if (!texto.trim()) throw new Error("Groq retornou vazio");
   return texto;
 }
 
@@ -148,12 +146,14 @@ export async function gerarTexto(prompt: string): Promise<RespostaIA> {
         await registrarIncidente("PROVIDER_FALLBACK", "google", String(e));
       }
     }
-    // 2) GLM do ambiente
-    try {
-      const texto = await comRetry(() => comTimeout(chamarGlm(prompt), TIMEOUT_MS));
-      return { texto, provedor: "glm", latencyMs: Date.now() - inicio };
-    } catch (e) {
-      await registrarIncidente("PROVIDER_FALLBACK", "glm", String(e));
+    // 2) Groq, se configurado
+    if (process.env.GROQ_API_KEY) {
+      try {
+        const texto = await comRetry(() => comTimeout(chamarGroq(prompt), TIMEOUT_MS));
+        return { texto, provedor: "groq", latencyMs: Date.now() - inicio };
+      } catch (e) {
+        await registrarIncidente("PROVIDER_FALLBACK", "groq", String(e));
+      }
     }
     // 3) Fallback local — a lição nunca para
     const texto = fallbackLocal(prompt);
