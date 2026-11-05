@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { TRILHA_LICOES } from "@/lib/pesquisa";
+import type { Prisma } from "@prisma/client";
 
 // Questionário completo de percepção (20 itens Likert + avaliação global + abertas),
 // aplicado ao encerrar a trilha de 10 lições.
@@ -23,8 +24,8 @@ export async function POST(req: Request) {
       );
     }
 
-    const likert = ["ut1", "ut2", "ut3", "ut4", "cf1", "cf2", "cf3", "cf4", "df1", "df2", "df3", "df4", "re1", "re2", "re3", "re4", "ct1", "ct2", "ct3", "ct4"];
-    const dados: Record<string, number> = {};
+    const likert = ["ut1", "ut2", "ut3", "ut4", "cf1", "cf2", "cf3", "cf4", "df1", "df2", "df3", "df4", "re1", "re2", "re3", "re4", "ct1", "ct2", "ct3", "ct4"] as const;
+    const dados = {} as Pick<Prisma.FinalQuestionnaireUncheckedCreateInput, (typeof likert)[number]>;
     for (const k of likert) {
       const v = Number(body[k]);
       if (!Number.isInteger(v) || v < 1 || v > 5) {

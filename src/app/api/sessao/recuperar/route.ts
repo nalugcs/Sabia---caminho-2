@@ -30,7 +30,7 @@ export async function POST(req: Request) {
       data: { lastActiveAt: new Date() },
     });
 
-    const licoes = [];
+    const licoes: { numero: number; status: string; sessionId?: string; modo?: string; score?: number | null; acertos?: number; interacoes?: number; tempoSec?: number | null; microRespondido?: boolean }[] = [];
     for (let n = 1; n <= TRILHA_LICOES; n++) {
       const s = p.sessions.find((x) => x.lessonNumber === n);
       if (!s) {

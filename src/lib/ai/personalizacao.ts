@@ -12,7 +12,7 @@ export async function construirPerfilParticipante(participantId: string): Promis
       sessions: {
         where: { status: "ENCERRADA" },
         orderBy: { lessonNumber: "asc" },
-        select: { lessonNumber: true, score: true, correctCount: true, durationSec: true, endedAt: true },
+        select: { lessonNumber: true, score: true, correctCount: true, durationSec: true, startedAt: true, endedAt: true },
       },
     },
   });
