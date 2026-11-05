@@ -1,0 +1,29 @@
+{
+  "choices": [
+    {
+      "finish_reason": "stop",
+      "index": 0,
+      "message": {
+        "content": "# Análise tipográfica\n\n## 1) Títulos: serifa display (Fraunces) ou genérica?\n\n**É uma display com personalidade — consistente com Fraunces, não Times/Liberation.** Evidências visíveis:\n\n- **Contraste alto**: na capa, o \"S\" de \"Sabiá\" mostra transição forte entre fustes grossos e finos (hairlines nas curvas), típico de display — Times tem contraste moderado e uniforme.\n- **Terminais suaves/arredondados e \"wonk\"**: o \"a\" minúsculo do wordmark (página 02) tem uma forma quase unicamente mordida no bojo, com terminal de gota — isso é a assinatura da Fraunces (o texto da própria página até cita \"Fraunces — terminais suavizados\"). Times/Liberation não têm esse desenho de terminal no \"a\".\n- **Serifas vivas e levemente assimétricas**: nas pernas do \"b\" e do \"i\" (wordmark) as serifas têm bráquetes profundos e pontas \"quentes\", não as serifas retangulares planas da Liberation Serif.\n- **Acento redesenhado como folha**: o acento agudo do \"á\" é um traço curvo orgânico laranja, não um traço reto genérico.\n\n## 2) Corpo de texto: Inter ou genérico?\n\n**Parece um sans neutro moderno compatível com Inter**, não Arial/Liberation:\n\n- \"a\" e \"g\" de duas pisadas (double-story) — correto para Inter; Liberation Sans (Arial) também tem \"a\" double-story, mas os detalhes discriminam:\n- O **\"1\" com base serifa e haste com bandeira** (visível em \"V1.0 · 2026\" e nos números da escala) é característico do Inter; o \"1\" do Arial é uma haste simples.\n- **\"R\" com perna reta e levemente angulada**, caixa mais alta (x-height alto), terminais horizontais cortados retos — leitura \"Inter\", não o \"R\" curvo do Arial.\n- O \"G\" de \"Gonçalves\" tem o barra/esporão de Inter, não o esporão do Arial.\n- Letter-spacing levemente fechado, largura geral mais \"quadrada\" — Arial é mais aberto/arredondado.\n\n## 3) O itálico \"Toda voz se aprende.\"\n\n**É itálico verdadeiro, não oblíquo sintético.** Evidências:\n\n- As formas são **redesenhadas**, não apenas inclinadas: o \"a\" itálico mantém estrutura com terminais cursivos, o \"v\" e o \"z\" têm desenho caligráfico, e há modulação nas entradas dos fustes.\n- Oblíquo sintético (shear de máquina) preservaria exatamente as formas romanas inclinadas — aqui o \"e\", o \"d\" e o \"p\" têm geometria própria cursiva.\n- Na página 03 (\"Aa Fraunces\") o mesmo itálico aparece consistente.\n\n## 4) Problemas na composição — específicos\n\n1. **Capa — hierarquia da assinatura quebrada**: o itálico \"Toda voz se aprende.\" encosta muito no \"Sabiá\" e está centralizado sob o bloco, mas o peso do wordmark cria um \"choque\" — a tagline parece sobrar em vez de fechar o lockup. Faltaria ~8–12px de respiro.\n\n2. **Capa — folha do \"á\" desalinhada**: a folha laranja flutua acima do acento com um vazio grande entre a pena/folha e a letra; no wordmark da página 02 a folha está mais integrada. Inconsistência entre as duas aplicações do mesmo elemento.\n\n3. **Página 02 — texto do card irregular**: o parágrafo \"Construção\" tem linha final muito curta (\"110px de largura, prefira o símbolo isolado.\" quebra deixando ~1/3 da linha) e o texto direito em ambos os parágrafos cria duas \"colunas de ar\" desiguais — texto alinhado à esquerda resolveria.\n\n4. **Página 02 — card do \"a\" isolado**: a legenda \"O acento do 'a' é uma folha.\" em cinza-claro sobre branco tem contraste baixo demais (falha provável de WCAG), e o card esquerdo tem muito espaço vazio embaixo do glifo, enquanto o texto à direita é denso — os dois cards da \"CONSTRUÇÃO\" não equilibram.\n\n5. **Página 03 — escala tipográfica incoerente**: os rótulos da esquerda (\"Display · 40/44\" etc.) estão em mono pequeno cinza, mas a amostra \"Corpo · 14.5/23\" diz 14.5pt enquanto a linha renderizada ao lado parece maior que 14.5/23 na proporção da página — a escala ilustrada não parece corresponder aos tamanhos declarados.\n\n6. **Página 03 — \"Aa\" das caixas não casa com o spec**: o \"Aa\" do card Fraunces é bold/preto (peso ~700) enquanto o wordmark é semibold; o \"Aa\" do card Inter também é muito pesado em relação ao corpo 300–700 mostrado — os exemplares não demonstram a faixa declarada.\n\n7. **Capa — \"MBA USP/Esalq\" em bold + \"UNIVERSIDADE DE SÃO PAULO\" em tracking largo cinza na mesma linha**: dois tratamentos diferentes colados na mesma baseline, com o nome da universidade menos legível que o do programa — hierarquia invertida (a instituição deveria ter mais peso ou o mesmo).\n\n8. **Onda decorativa do canto (capa)**: o círculo de linhas finas no canto superior direito é cortado pela borda de forma abrupta e colide com o dot verde, parecendo artefato de renderização em vez de elemento intencional.\n\n**Resumo**: as fontes parecem ser as declaradas (Fraunces + Inter, itálico verdadeiro), mas a execução tem problemas de espaçamento no lockup da capa, contraste de legendas e coerência entre amostras e specs na página de tipografia.",
+        "reasoning_content": "Analyze typography from images.",
+        "role": "assistant"
+      }
+    }
+  ],
+  "created": 1793887403,
+  "id": "20261105220243f5fcac2c18c2420b",
+  "model": "glm-5.3-flash",
+  "object": "chat.completion",
+  "request_id": "20261105220243f5fcac2c18c2420b",
+  "usage": {
+    "completion_tokens": 1478,
+    "completion_tokens_details": {
+      "reasoning_tokens": 6
+    },
+    "prompt_tokens": 2250,
+    "prompt_tokens_details": {
+      "cached_tokens": 0
+    },
+    "total_tokens": 3728
+  }
+}

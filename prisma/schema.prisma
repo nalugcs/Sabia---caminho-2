@@ -1,0 +1,144 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Participante da pesquisa (adultos, TCLE aceito). Identificação por código.
+model Participant {
+  id            String    @id @default(cuid())
+  code          String    @unique // SAB-XXXX
+  firstName     String
+  lastName      String
+  age           Int
+  selfLevel     Int // 1..5 (nível auto-declarado)
+  language      String // Inglês | Espanhol | Francês
+  tceAcceptedAt DateTime
+  createdAt     DateTime  @default(now())
+  lastActiveAt  DateTime  @default(now())
+  status        String    @default("ATIVO") // ATIVO | FINALIZADO
+  finishedAt    DateTime?
+  sessions      LessonSession[]
+  microAnswers  MicroQuestionnaire[]
+  finalAnswer   FinalQuestionnaire?
+}
+
+// Catálogo de lições: 3 idiomas × 20 lições (nível por faixa).
+model Lesson {
+  id        String @id @default(cuid())
+  language  String
+  number    Int
+  level     String // Básico | Intermediário | Avançado | Fluente
+  theme     String
+  objective String
+  content   String // JSON array de tópicos
+
+  @@unique([language, number])
+}
+
+// Sessão de estudo de uma lição (métricas de desempenho por lição).
+model LessonSession {
+  id               String    @id @default(cuid())
+  participant      Participant @relation(fields: [participantId], references: [id])
+  participantId    String
+  lessonNumber     Int // 1..20
+  mode             String // escrita | completar | conversa | jogo
+  status           String    @default("EM_ANDAMENTO") // EM_ANDAMENTO | ENCERRADA
+  startedAt        DateTime  @default(now())
+  endedAt          DateTime?
+  score            Float? // nota final 0..10 (média das notas das interações)
+  interactionCount Int       @default(0)
+  correctCount     Int       @default(0) // interações com nota >= 7
+  hintsUsed        Int       @default(0)
+  durationSec      Int?
+  finalFeedback    String? // JSON do feedback final
+  provider         String? // último provedor de IA usado
+  messages         ChatMessage[]
+  micro            MicroQuestionnaire?
+}
+
+// Mensagens trocadas na lição (aluno ↔ professora-IA).
+model ChatMessage {
+  id                String       @id @default(cuid())
+  session           LessonSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sessionId         String
+  role              String // ALUNO | PROFESSORA
+  content           String
+  correcao          String?
+  explicacao        String?
+  exemplo           String?
+  nota              Float?
+  proximoExercicio String?
+  provider          String?
+  latencyMs         Int?
+  createdAt         DateTime     @default(now())
+}
+
+// Micro-questionário (5 itens) ao final de cada lição.
+model MicroQuestionnaire {
+  id            String        @id @default(cuid())
+  session       LessonSession @relation(fields: [sessionId], references: [id])
+  sessionId     String        @unique
+  participant   Participant   @relation(fields: [participantId], references: [id])
+  participantId String
+  lessonNumber  Int
+  ml1           Int // utilidade da lição
+  ml2           Int // clareza do feedback
+  ml3           Int // dificuldade adequada
+  ml4           Int // realismo da conversa
+  tempoMin      Int?
+  createdAt     DateTime      @default(now())
+}
+
+// Questionário completo de percepção ao encerrar a trilha.
+model FinalQuestionnaire {
+  id            String      @id @default(cuid())
+  participant   Participant @relation(fields: [participantId], references: [id])
+  participantId String      @unique
+  // C.1 Utilidade
+  ut1 Int
+  ut2 Int
+  ut3 Int
+  ut4 Int
+  // C.2 Clareza do feedback
+  cf1 Int
+  cf2 Int
+  cf3 Int
+  cf4 Int
+  // C.3 Dificuldade percebida
+  df1 Int
+  df3 Int
+  df2 Int
+  df4 Int
+  // C.4 Realismo das conversas
+  re1 Int
+  re2 Int
+  re3 Int
+  re4 Int
+  // C.5 Contribuição para o aprendizado
+  ct1 Int
+  ct2 Int
+  ct3 Int
+  ct4 Int
+  // D. Avaliação global
+  dg1 Int // satisfação geral 1..5
+  dg2 Int // recomendação 0..10
+  dg3 String // comparação com outros apps
+  // E. Questões abertas
+  qa1 String?
+  qa2 String?
+  qa3 String?
+  createdAt DateTime @default(now())
+}
+
+// Log de incidentes (confiabilidade: fallbacks, timeouts, erros).
+model IncidentLog {
+  id        String   @id @default(cuid())
+  type      String // PROVIDER_FALLBACK | TIMEOUT | ERRO
+  provider  String
+  detail    String
+  createdAt DateTime @default(now())
+}

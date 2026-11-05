@@ -1,0 +1,28 @@
+{
+  "choices": [
+    {
+      "finish_reason": "stop",
+      "index": 0,
+      "message": {
+        "content": "1) **Bico no mono (Q3):** Legível, mas é o ponto mais fraco — em preto sobre preto ele se salva apenas pelo recorte em branco/creme ao redor. Funciona, mas com pouco contraste interno. Aceitável.\n\n2) **Vazamentos/desconexões:** Nenhum vazamento de forma. Uma observação: no Q4 (sem arcos) o bico em amarelo mantém bom contraste, ok. A transição cabe peito/vermelho (peito ruivo) está consistente nos 3 quadrantes onde aparece. Nenhuma desconexão crítica.\n\n3) **Nota:** **8,5/10**. Coerência forte entre versões, silhueta clara, sistema bem resolvido.\n\n4) **Melhorias críticas (só 2):**\n- **Mono:** adicionar um recorte fino (1px de respiro) entre cabeça e bico para o bico não depender só do fundo.\n- **Q2 (negativo):** a asa some no corpo claro — considerar recorte sutil ou aceitar a simplificação como decisão intencional (documentar no guia).",
+        "role": "assistant"
+      }
+    }
+  ],
+  "created": 1793886065,
+  "id": "20261105214052083d8f8b2c5948d6",
+  "model": "glm-5.3-flash",
+  "object": "chat.completion",
+  "request_id": "20261105214052083d8f8b2c5948d6",
+  "usage": {
+    "completion_tokens": 267,
+    "completion_tokens_details": {
+      "reasoning_tokens": 266
+    },
+    "prompt_tokens": 1556,
+    "prompt_tokens_details": {
+      "cached_tokens": 0
+    },
+    "total_tokens": 1823
+  }
+}

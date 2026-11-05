@@ -1,0 +1,29 @@
+{
+  "choices": [
+    {
+      "finish_reason": "stop",
+      "index": 0,
+      "message": {
+        "content": "SIM — ancorada\n\nO vão entre a base da folha laranja e o topo do 'a' é pequeno e plausível: a folha termina logo acima do olho da letra, com a inclinação descendente da folha (da direita para a esquerda) apontando para o corpo do 'a', como um acento agudo tipográfico legítimo. A distância é consistente com o espaço que um desenhador de tipos usaria — não há flutuação evidente nem vão excessivo.",
+        "reasoning_content": "The leaf sits close above the a, apex slightly right-aligned; gap looks small and plausible.",
+        "role": "assistant"
+      }
+    }
+  ],
+  "created": 1793888038,
+  "id": "202611052213531a67be15ebc74fad",
+  "model": "glm-5.3-flash",
+  "object": "chat.completion",
+  "request_id": "202611052213531a67be15ebc74fad",
+  "usage": {
+    "completion_tokens": 137,
+    "completion_tokens_details": {
+      "reasoning_tokens": 19
+    },
+    "prompt_tokens": 468,
+    "prompt_tokens_details": {
+      "cached_tokens": 0
+    },
+    "total_tokens": 605
+  }
+}

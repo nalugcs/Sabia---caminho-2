@@ -1,0 +1,28 @@
+{
+  "choices": [
+    {
+      "finish_reason": "stop",
+      "index": 0,
+      "message": {
+        "content": "# Verificação objetiva — Wordmark 'Sabiá' v2\n\n## 1) Leitura\n✅ **Sim.** As três linhas grafam corretamente \"Sabiá\" / \"sabiá\", com 5 glifos cada, na ordem correta. O 'i' mantém o ponto, sem fusão com o 'a' final. Primário (maiúsculo S + minúsculas) e minúsculo são consistentes.\n\n## 2) Folha-acento (agudo)\n⚠️ **Parcialmente.**\n- **Formato:** bom — fusiforme, leitura de agudo/lâmina-folha, cores plausíveis (ruiva no primário/minúsculo, amarela no negativo com contraste adequado).\n- **Altura:** plausível, acima da altura-x e do 'i', sem tocar o 'a'.\n- **Alinhamento:** inconsistente. A inclinação muda entre versões (~65° no primário, ~75° mais vertical no negativo, ~65° no minúsculo) e o deslocamento horizontal em relação ao eixo do 'a' final varia. A ponta inferior da folha \"flutua\" longe demais do 'a' no primário, lendo quase como marca gráfica solta, não como acento.\n\n## 3) Cortes / moldura\n✅ Nenhum glifo cortado. Todas as versões têm respiro adequado nas quatro bordas (a ascendente do 'b' e a folha aproximam-se do topo no negativo, mas sem tocá-lo).\n\n## 4) Nota\n**7,5 / 10** — tipografia forte e consistente, acento legível; perde pontos pelo alinhamento instável do elemento-folha entre as versões.\n\n## Correções críticas (máx. 3)\n1. **Padronizar a inclinação da folha** em ~65° nas três versões (usar o mesmo ativo vetorial rotacionado, não redesenhado).\n2. **Aproximar a base da folha do 'a' final** no primário e no minúsculo (~10–15% mais perto do eixo do glifo) para reforçar a leitura \"á\" e não \"sabia + risco\".\n3. **Unificar a posição horizontal** da folha relativa ao centro do 'a' nas 3 linhas (no negativo ela está deslocada à direita em relação às demais).",
+        "role": "assistant"
+      }
+    }
+  ],
+  "created": 1793886277,
+  "id": "2026110521442313b80dc901214a6e",
+  "model": "glm-5.3-flash",
+  "object": "chat.completion",
+  "request_id": "2026110521442313b80dc901214a6e",
+  "usage": {
+    "completion_tokens": 566,
+    "completion_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "prompt_tokens": 3023,
+    "prompt_tokens_details": {
+      "cached_tokens": 0
+    },
+    "total_tokens": 3589
+  }
+}
