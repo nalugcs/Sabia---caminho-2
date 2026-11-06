@@ -21,6 +21,7 @@ model Participant {
   createdAt     DateTime  @default(now())
   lastActiveAt  DateTime  @default(now())
   status        String    @default("ATIVO") // ATIVO | FINALIZADO
+  lessonProgress Int      @default(0) // nº de lições CONCLUÍDAS (avançadas explicitamente)
   finishedAt    DateTime?
   sessions      LessonSession[]
   microAnswers  MicroQuestionnaire[]
@@ -40,25 +41,56 @@ model Lesson {
   @@unique([language, number])
 }
 
-// Sessão de estudo de uma lição (métricas de desempenho por lição).
+// Sessão de estudo de uma lição (uma atividade: conversa, completar ou jogo).
+// Após o feedback da autora (nov/2026): várias sessões por lição, revisão de
+// lições concluídas e métricas exatas de exercícios.
 model LessonSession {
   id               String    @id @default(cuid())
   participant      Participant @relation(fields: [participantId], references: [id])
   participantId    String
   lessonNumber     Int // 1..20
-  mode             String // escrita | completar | conversa | jogo
+  mode             String // conversa | completar | jogo (legacy: escrita)
   status           String    @default("EM_ANDAMENTO") // EM_ANDAMENTO | ENCERRADA
+  isReview         Boolean   @default(false) // sessão de revisão (lição já concluída)
   startedAt        DateTime  @default(now())
   endedAt          DateTime?
-  score            Float? // nota final 0..10 (média das notas das interações)
-  interactionCount Int       @default(0)
-  correctCount     Int       @default(0) // interações com nota >= 7
+  score            Float? // nota final 0..10 (média das notas; exata p/ exercícios)
+  interactionCount Int       @default(0) // total de entradas do aluno (mensagens + respostas)
+  correctCount     Int       @default(0) // exercícios corretos OU interações com nota >= 7 (conversa)
+  exercisesTotal   Int       @default(0) // questões respondidas na atividade (0 p/ conversa)
+  exercisesCorrect Int       @default(0) // questões corretas (avaliação determinística)
   hintsUsed        Int       @default(0)
   durationSec      Int?
   finalFeedback    String? // JSON do feedback final
   provider         String? // último provedor de IA usado
   messages         ChatMessage[]
+  exercises        Exercise[]
   micro            MicroQuestionnaire?
+}
+
+// Questão de uma atividade (completar/jogo). Gabarito fica no servidor e só
+// é revelado ao aluno DEPOIS da resposta — a avaliação é determinística.
+model Exercise {
+  id             String       @id @default(cuid())
+  session        LessonSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sessionId      String
+  ordem          Int // 1..N dentro da atividade
+  tipo           String // multipla | digitada | ordenar | associar
+  dificuldade    String // facil | medio | dificil
+  enunciado      String
+  alternativas   String? // JSON string[] (multipla/ordenar: banco de palavras)
+  pares          String? // JSON [string,string][] (associar)
+  gabarito       String // JSON (resposta correta; nunca enviado antes da resposta)
+  tolerancias    String? // JSON string[] (variações aceitas na resposta digitada)
+  dica           String? // dica que não entrega a resposta
+  respostaAluno  String? // JSON (resposta enviada)
+  correta        Boolean?
+  nota           Float? // nota da questão (10/6/0 p/ determinístico; IA p/ digitada)
+  explicacao     String? // feedback pós-resposta
+  criadoEm       DateTime     @default(now())
+  respondidoEm   DateTime?
+
+  @@index([sessionId, ordem])
 }
 
 // Mensagens trocadas na lição (aluno ↔ professora-IA).

@@ -1,6 +1,8 @@
-// Parser da resposta estruturada da professora-IA
-// (formato do TCC: Correção / Explicação / Exemplo / Nota / Próximo exercício),
-// com limpeza de Markdown — o app renderiza texto plano.
+// Parser da professora-IA.
+// - Conversa natural: extrai a nota oculta "[NOTA: X]" do fim da resposta
+//   (para métricas) e devolve o texto limpo para exibição.
+// - Legado: formato estruturado Correção/Explicação/Exemplo/Nota/Próximo
+//   exercício, mantido para compatibilidade com sessões antigas.
 
 import { limparMarkdown } from "./markdown";
 
@@ -13,6 +15,37 @@ export interface FeedbackEstruturado {
   exemplo?: string;
   nota?: number | null;
   proximoExercicio?: string;
+}
+
+/**
+ * Conversa natural: nota oculta na última linha "[NOTA: X]".
+ * Remove a linha do texto exibido e devolve a nota (null se "—" ou ausente).
+ */
+export function extrairNotaOculta(texto: string): { exibicao: string; nota: number | null } {
+  const m = texto.match(/\n?\[NOTA\s*:\s*([^\]]*)\]\s*$/i);
+  if (!m) return { exibicao: limparMarkdown(texto).trim(), nota: null };
+  const brutoNota = m[1].trim();
+  const mNum = brutoNota.match(/^(\d{1,2}(?:[.,]\d+)?)\s*\/?\s*(?:10)?$/);
+  let nota: number | null = null;
+  if (mNum) {
+    nota = parseFloat(mNum[1].replace(",", "."));
+    if (nota > 10) nota = 10;
+  }
+  const exibicao = limparMarkdown(texto.replace(m[0], "")).trim();
+  return { exibicao, nota };
+}
+
+/**
+ * Avaliação digitada pela IA: primeira linha "CORRETO"/"INCORRETO" + explicação.
+ */
+export function parseVeredito(texto: string): { correta: boolean | null; explicacao: string } {
+  const m = texto.trim().match(/^(CORRETO|INCORRETO)\b/i);
+  if (!m) return { correta: null, explicacao: limparMarkdown(texto).trim().slice(0, 400) };
+  const correta = m[1].toUpperCase() === "CORRETO";
+  const explicacao = limparMarkdown(texto.slice(m[0].length))
+    .replace(/^[\s:—-]+/, "")
+    .trim();
+  return { correta, explicacao: explicacao || (correta ? "Resposta correta!" : "Resposta incorreta — veja o gabarito.") };
 }
 
 const ROTULOS = ["Correção", "Explicação", "Exemplo", "Nota", "Próximo exercício"];

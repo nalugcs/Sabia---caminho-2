@@ -4,7 +4,7 @@
 // que devolvem as mensagens específicas em português.
 
 import { z } from "zod";
-import { IDIOMAS, MODOS, TRILHA_LICOES } from "./pesquisa";
+import { IDIOMAS, MODOS_ACEITOS, TRILHA_LICOES } from "./pesquisa";
 
 const codigoParticipante = z
   .string()
@@ -28,7 +28,7 @@ export const recuperarSchema = z.object({
 export const iniciarLicaoSchema = z.object({
   code: codigoParticipante,
   lessonNumber: z.number().int().min(1).max(TRILHA_LICOES),
-  mode: z.string().refine((m) => MODOS.some((x) => x.id === m), "Modo inválido."),
+  mode: z.string().refine((m) => MODOS_ACEITOS.includes(m), "Modo inválido."),
 });
 
 export const sessionIdSchema = z.object({
@@ -37,6 +37,22 @@ export const sessionIdSchema = z.object({
 
 export const mensagemSchema = sessionIdSchema.extend({
   content: z.string().trim().min(1, "Escreva uma resposta (até 2000 caracteres).").max(2000),
+});
+
+// Responder um exercício: texto (multipla/digitada), sequência (ordenar) ou pares (associar).
+export const responderSchema = z.object({
+  exerciseId: z.string().min(1, "Exercício inválido.").max(64),
+  resposta: z.union([
+    z.string().trim().min(1, "Envie uma resposta.").max(2000),
+    z.array(z.string().trim().min(1).max(200)).min(1).max(24),
+    z.array(z.object({ esq: z.string().trim().min(1).max(200), dir: z.string().trim().min(1).max(200) })).min(1).max(12),
+  ]),
+});
+
+// Concluir a lição atual e avançar para a próxima.
+export const avancarSchema = z.object({
+  code: codigoParticipante,
+  lessonNumber: z.number().int().min(1).max(TRILHA_LICOES),
 });
 
 export const microSchema = z.object({

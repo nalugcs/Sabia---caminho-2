@@ -18,35 +18,52 @@ export const MODOS = [
     id: "conversa",
     label: "Conversa",
     icone: "message-circle",
-    descricao: "Diálogo livre com a professora IA sobre o tema da lição.",
-  },
-  {
-    id: "escrita",
-    label: "Escrita",
-    icone: "pen-line",
-    descricao: "Escreva frases e textos curtos; receba correção linha a linha.",
+    descricao:
+      "Chat natural e contínuo com a professora-IA — ela mantém o contexto, corrige sem interromper e adapta o nível.",
   },
   {
     id: "completar",
     label: "Completar frase",
     icone: "list-checks",
-    descricao: "Frases com lacuna e alternativas para escolher.",
+    descricao:
+      "Frases com lacuna respondidas de três formas: digitando, escolhendo alternativas ou montando a frase — varia automaticamente.",
   },
   {
     id: "jogo",
     label: "Jogo",
     icone: "gamepad-2",
-    descricao: "Desafios curtos: tradução, escolha múltipla ou montar frase.",
+    descricao:
+      "Desafios rápidos: escolha múltipla, tradução, associação e montar frases — com dificuldade progressiva e feedback imediato.",
   },
 ] as const;
 export type ModoId = (typeof MODOS)[number]["id"];
 
+// Modalidades de resposta dentro de "completar" (feedback da autora, item 5):
+// A digitada · B seleção de alternativas · C construção de frases.
+export const MODALIDADES_COMPLETAR = ["digitada", "seleção", "construção"] as const;
+
+// Questões por atividade (o critério de aceite exige contagem exata:
+// 10 questões com 7 corretas → 70%).
+export const QUESTOES_POR_MODO: Record<string, number> = {
+  completar: 8,
+  jogo: 10,
+};
+
+/** Modos válidos na API (inclui "escrita" legado de sessões antigas). */
+export const MODOS_ACEITOS = [...MODOS.map((m) => m.id), "escrita"] as string[];
+
+/** Rótulo amigável do modo (legado "escrita" → completar). */
+export function rotuloModo(modo: string): string {
+  if (modo === "escrita") return "Completar frase";
+  return MODOS.find((m) => m.id === modo)?.label ?? modo;
+}
+
 export const NIVEIS_DECLARADOS = [
-  { valor: 1, rotulo: "1 — Nunca estudei" },
-  { valor: 2, rotulo: "2 — Iniciante" },
-  { valor: 3, rotulo: "3 — Intermediário" },
-  { valor: 4, rotulo: "4 — Avançado" },
-  { valor: 5, rotulo: "5 — Fluente" },
+  { valor: 1, rotulo: "1 — Nunca estudei (A1)" },
+  { valor: 2, rotulo: "2 — Iniciante (A2)" },
+  { valor: 3, rotulo: "3 — Intermediário (B1)" },
+  { valor: 4, rotulo: "4 — Avançado (B2/C1)" },
+  { valor: 5, rotulo: "5 — Fluente (C1/C2)" },
 ];
 
 // Faixas de nível por número de lição (fiel ao obter_nivel do notebook).

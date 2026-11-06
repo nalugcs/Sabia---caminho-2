@@ -14,9 +14,9 @@ import { Bird } from "lucide-react";
 type Visao =
   | { tipo: "carregando" }
   | { tipo: "landing" }
-  | { tipo: "trilha" }
+  | { tipo: "trilha"; focoDialogo?: number }
   | { tipo: "licao"; numero: number; modo: string }
-  | { tipo: "resumo"; sessionId: string; numero: number; resultado: ResultadoEncerrar }
+  | { tipo: "resumo"; sessionId: string; numero: number; modo: string; resultado: ResultadoEncerrar }
   | { tipo: "final" }
   | { tipo: "obrigado" }
   | { tipo: "pesquisadora" };
@@ -60,7 +60,7 @@ export default function Page() {
   function onRegistrado(code: string) {
     localStorage.setItem(CHAVE, code);
     setCodigo(code);
-    carregarEstado(code).then(() => setVisao({ tipo: "trilha" }));
+    carregarEstado(code).then(() => setVisao({ tipo: "trilha", focoDialogo: 1 }));
   }
 
   function onRecuperado(e: EstadoSessao) {
@@ -77,9 +77,9 @@ export default function Page() {
     setVisao({ tipo: "landing" });
   }
 
-  function voltarTrilha() {
+  function voltarTrilha(focoDialogo?: number) {
     if (codigo) {
-      carregarEstado(codigo).then(() => setVisao({ tipo: "trilha" }));
+      carregarEstado(codigo).then(() => setVisao({ tipo: "trilha", focoDialogo }));
     } else {
       setVisao({ tipo: "landing" });
     }
@@ -121,9 +121,11 @@ export default function Page() {
       <Trilha
         estado={estado}
         codigo={codigo}
+        focoDialogo={visao.focoDialogo}
         onAbrirLicao={(numero, modo) => setVisao({ tipo: "licao", numero, modo })}
         onVerQuestionarioFinal={() => setVisao({ tipo: "final" })}
         onSair={sair}
+        onAvancou={() => voltarTrilha()}
       />
     );
   }
@@ -131,12 +133,19 @@ export default function Page() {
   if (visao.tipo === "licao") {
     return (
       <Licao
+        key={`${visao.numero}-${visao.modo}-${Date.now()}`}
         codigo={codigo}
         lessonNumber={visao.numero}
         mode={visao.modo}
-        onVoltar={voltarTrilha}
+        onVoltar={() => voltarTrilha()}
         onEncerrada={(resultado, sessionId) =>
-          setVisao({ tipo: "resumo", sessionId, numero: visao.numero, resultado })
+          setVisao({
+            tipo: "resumo",
+            sessionId,
+            numero: visao.numero,
+            modo: visao.modo,
+            resultado,
+          })
         }
       />
     );
@@ -148,8 +157,12 @@ export default function Page() {
         codigo={codigo}
         sessionId={visao.sessionId}
         lessonNumber={visao.numero}
+        mode={visao.modo}
         resultado={visao.resultado}
-        onVoltarTrilha={voltarTrilha}
+        onPraticarOutroModo={() => voltarTrilha(visao.numero)}
+        onRepetirAtividade={() => setVisao({ tipo: "licao", numero: visao.numero, modo: visao.modo })}
+        onAvancarLicao={() => voltarTrilha(visao.resultado.acoes.proximaLicao ?? undefined)}
+        onVoltarTrilha={() => voltarTrilha()}
       />
     );
   }
@@ -158,7 +171,7 @@ export default function Page() {
     return (
       <QuestionarioFinal
         codigo={codigo}
-        onVoltar={voltarTrilha}
+        onVoltar={() => voltarTrilha()}
         onConcluido={() => {
           carregarEstado(codigo).then(() => setVisao({ tipo: "obrigado" }));
         }}
@@ -179,8 +192,8 @@ export default function Page() {
       </p>
       <Button
         variant="outline"
-        className="mt-8 border-creme/40 text-creme hover:bg-creme/10 hover:text-creme rounded-full px-6"
-        onClick={voltarTrilha}
+        className="mt-8 border-creme/40 text-creme hover:bg-creme/10 hover:text-creme bg-transparent rounded-full px-6"
+        onClick={() => voltarTrilha()}
       >
         Ver minha trilha
       </Button>

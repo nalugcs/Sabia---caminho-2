@@ -1,15 +1,20 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { mensagemSchema, mensagemDeErro } from "@/lib/schemas";
+import { permitir, ipDe } from "@/lib/security";
 import { gerarTexto } from "@/lib/ai/providers";
-import { promptMensagemAula } from "@/lib/ai/prompts";
-import { parseFeedback } from "@/lib/ai/parse";
+import { promptMensagemConversa } from "@/lib/ai/prompts";
+import { extrairNotaOculta } from "@/lib/ai/parse";
 import { construirPerfilParticipante, obterContextoAula } from "@/lib/ai/personalizacao";
 import { formatarMensagem } from "@/lib/formatar";
 
-// Envia a resposta do aluno e devolve a correção da professora-IA.
+// Envia a mensagem do aluno no modo CONVERSA e devolve a resposta natural
+// da professora-IA (correção breve integrada, nota oculta para métricas).
 export async function POST(req: Request) {
   try {
+    if (!permitir(`${new URL(req.url).pathname}:${ipDe(req)}`, 60)) {
+      return NextResponse.json({ erro: "Muitas mensagens em seguida. Aguarde um pouco." }, { status: 429 });
+    }
     const analise = mensagemSchema.safeParse(await req.json());
     if (!analise.success) {
       return NextResponse.json({ erro: mensagemDeErro(analise) }, { status: 400 });
@@ -22,13 +27,17 @@ export async function POST(req: Request) {
     });
     if (!session) return NextResponse.json({ erro: "Sessão não encontrada." }, { status: 404 });
     if (session.status !== "EM_ANDAMENTO") {
-      return NextResponse.json({ erro: "Esta lição já foi encerrada." }, { status: 409 });
+      return NextResponse.json({ erro: "Esta atividade já foi encerrada." }, { status: 409 });
+    }
+    if (session.mode !== "conversa" && session.mode !== "escrita") {
+      return NextResponse.json(
+        { erro: "Esta rota é só do modo conversa — use /api/licao/atividade/responder para exercícios." },
+        { status: 400 }
+      );
     }
 
     // persiste a mensagem do aluno
-    await db.chatMessage.create({
-      data: { sessionId, role: "ALUNO", content },
-    });
+    await db.chatMessage.create({ data: { sessionId, role: "ALUNO", content } });
 
     const historico = await db.chatMessage.findMany({
       where: { sessionId },
@@ -41,32 +50,29 @@ export async function POST(req: Request) {
       session.participant.language,
       session.lessonNumber,
       session.mode,
-      perfil
+      perfil,
+      session.participant.selfLevel
     );
     if (!ctx) return NextResponse.json({ erro: "Lição não encontrada." }, { status: 404 });
 
     const { texto, provedor, latencyMs } = await gerarTexto(
-      promptMensagemAula(ctx, content, historico)
+      promptMensagemConversa(ctx, content, historico)
     );
-    const fb = parseFeedback(texto);
+    const { exibicao, nota } = extrairNotaOculta(texto);
 
     const msg = await db.chatMessage.create({
       data: {
         sessionId,
         role: "PROFESSORA",
-        content: fb.exibicao,
-        correcao: fb.correcao,
-        explicacao: fb.explicacao,
-        exemplo: fb.exemplo,
-        nota: fb.nota,
-        proximoExercicio: fb.proximoExercicio,
+        content: exibicao,
+        nota,
         provider: provedor,
         latencyMs,
       },
     });
 
-    // métricas por interação
-    const acertou = fb.nota != null && fb.nota >= 7 ? 1 : 0;
+    // métricas por interação: uma nota por mensagem do aluno
+    const acertou = nota != null && nota >= 7 ? 1 : 0;
     await db.lessonSession.update({
       where: { id: sessionId },
       data: {

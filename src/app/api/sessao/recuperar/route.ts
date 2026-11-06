@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { TRILHA_LICOES } from "@/lib/pesquisa";
+import { TRILHA_LICOES, rotuloModo } from "@/lib/pesquisa";
 import { recuperarSchema } from "@/lib/schemas";
 import { permitir, ipDe } from "@/lib/security";
+import { estadoDasLicoes, type ResumoSessao } from "@/lib/trilha";
+import { rotuloCEFR } from "@/lib/cefr";
 
 // Recuperação de sessão pelo código do participante (mesmo link, outro dia/dispositivo).
+// Formato novo: estado por lição com modos praticados, avanço explícito e revisão.
 export async function POST(req: Request) {
   try {
     // rate limit: 10 tentativas por minuto por IP (código SAB-XXXX não é secreto forte)
@@ -20,10 +23,7 @@ export async function POST(req: Request) {
     const p = await db.participant.findUnique({
       where: { code },
       include: {
-        sessions: {
-          orderBy: { lessonNumber: "asc" },
-          include: { micro: true },
-        },
+        sessions: { orderBy: { lessonNumber: "asc" } },
         finalAnswer: true,
       },
     });
@@ -36,30 +36,29 @@ export async function POST(req: Request) {
       data: { lastActiveAt: new Date() },
     });
 
-    const licoes: { numero: number; status: string; sessionId?: string; modo?: string; score?: number | null; acertos?: number; interacoes?: number; tempoSec?: number | null; microRespondido?: boolean }[] = [];
-    for (let n = 1; n <= TRILHA_LICOES; n++) {
-      const s = p.sessions.find((x) => x.lessonNumber === n);
-      if (!s) {
-        licoes.push({ numero: n, status: "BLOQUEADA" });
-      } else if (s.status === "EM_ANDAMENTO") {
-        licoes.push({ numero: n, status: "EM_ANDAMENTO", sessionId: s.id, modo: s.mode });
-      } else {
-        licoes.push({
-          numero: n,
-          status: "CONCLUIDA",
-          score: s.score,
-          acertos: s.correctCount,
-          interacoes: s.interactionCount,
-          tempoSec: s.durationSec,
-          microRespondido: !!s.micro,
-        });
-      }
-    }
+    const sessoes: ResumoSessao[] = p.sessions.map((s) => ({
+      sessionId: s.id,
+      lessonNumber: s.lessonNumber,
+      mode: s.mode,
+      status: s.status,
+      isReview: s.isReview,
+      exercisesTotal: s.exercisesTotal,
+      exercisesCorrect: s.exercisesCorrect,
+      interactionCount: s.interactionCount,
+      correctCount: s.correctCount,
+      score: s.score,
+      endedAt: s.endedAt ? s.endedAt.toISOString() : null,
+    }));
 
-    const concluidas = licoes.filter((l) => l.status === "CONCLUIDA").length;
+    const progresso = p.lessonProgress;
+    const licoes = estadoDasLicoes(sessoes, progresso).map((l) => ({
+      ...l,
+      praticado: l.praticado.map((m) => ({ ...m, rotulo: rotuloModo(m.mode) })),
+    }));
+
     const emAndamento = licoes.find((l) => l.status === "EM_ANDAMENTO");
     const proximaLicao =
-      emAndamento?.numero ?? (concluidas < TRILHA_LICOES ? concluidas + 1 : null);
+      emAndamento?.numero ?? (progresso < TRILHA_LICOES ? progresso + 1 : null);
 
     return NextResponse.json({
       participante: {
@@ -67,10 +66,11 @@ export async function POST(req: Request) {
         primeiroNome: p.firstName,
         idioma: p.language,
         nivelDeclarado: p.selfLevel,
+        nivelCEFR: rotuloCEFR(p.selfLevel),
         status: p.status,
       },
       licoes,
-      concluidas,
+      concluidas: progresso,
       total: TRILHA_LICOES,
       proximaLicao,
       questionarioFinalRespondido: !!p.finalAnswer,

@@ -2,6 +2,8 @@
 
 Aplicação de pesquisa para aprendizagem de idiomas por conversas e atividades personalizadas. Desenvolvida com Next.js, React, Prisma e PostgreSQL (Neon).
 
+Cada participante percorre 10 lições em Inglês, Espanhol ou Francês. Em cada lição pode praticar conversa, completar frases ou jogo, repetir atividades e revisar lições concluídas. O avanço para a próxima lição é explícito. Nos exercícios, o app calcula acertos a partir das respostas registradas; a conversa usa métricas separadas.
+
 ## Executar localmente
 
 1. Instale [Bun](https://bun.sh/) e copie `.env.example` para `.env`.
@@ -13,7 +15,7 @@ O arquivo `.env` é local e não deve ser enviado ao Git. Use a URL com pool do 
 
 ## Verificação
 
-Execute `bun run lint`, `bunx tsc --noEmit` e `bun run build`.
+Execute `bun run lint`, `bunx tsc --noEmit`, `bun test tests/` e `bun run build`.
 
 ## Publicar na Vercel
 

@@ -1,59 +1,91 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "@/hooks/use-toast";
-import { chamarAPI, formatarTempo, type EstadoSessao } from "./tipos";
-import { MODOS, ENCONTROS, nivelDaLicao } from "@/lib/pesquisa";
-import { Check, Lock, Play, MessageCircle, PenLine, ListChecks, Gamepad2, ClipboardList, Bird } from "lucide-react";
+import { chamarAPI, type EstadoSessao, type InfoLicao } from "./tipos";
+import { BotaoCopiar } from "./BotaoCopiar";
+import { MODOS, ENCONTROS, nivelDaLicao, rotuloModo } from "@/lib/pesquisa";
+import {
+  Check,
+  Lock,
+  Play,
+  MessageCircle,
+  ListChecks,
+  Gamepad2,
+  ClipboardList,
+  Bird,
+  ArrowRight,
+  RotateCcw,
+} from "lucide-react";
 
 const ICONES_MODO: Record<string, typeof MessageCircle> = {
   conversa: MessageCircle,
-  escrita: PenLine,
   completar: ListChecks,
   jogo: Gamepad2,
+  escrita: ListChecks, // legado
 };
 
 interface Props {
   estado: EstadoSessao;
   codigo: string;
+  focoDialogo?: number; // abre o diálogo de modos desta lição (ex.: voltar do resumo)
   onAbrirLicao: (lessonNumber: number, mode: string) => void;
   onVerQuestionarioFinal: () => void;
   onSair: () => void;
+  onAvancou: () => void; // recarrega estado após avanço
 }
 
-export function Trilha({ estado, codigo, onAbrirLicao, onVerQuestionarioFinal, onSair }: Props) {
+export function Trilha({ estado, codigo, focoDialogo, onAbrirLicao, onVerQuestionarioFinal, onSair, onAvancou }: Props) {
   const [dialogoAberto, setDialogoAberto] = useState(false);
+  const [licaoSelecionada, setLicaoSelecionada] = useState<InfoLicao | null>(null);
   const [modoSelecionado, setModoSelecionado] = useState<string | null>(null);
-  const [iniciando, setIniciando] = useState(false);
+  const [avancando, setAvancando] = useState(false);
+
+  // abre o diálogo da lição indicada (ex.: "praticar outra modalidade" pós-atividade)
+  useEffect(() => {
+    if (focoDialogo == null) return;
+    const alvo = estado.licoes.find((l) => l.numero === focoDialogo && l.status !== "BLOQUEADA");
+    if (alvo) {
+      setLicaoSelecionada(alvo);
+      setModoSelecionado(null);
+      setDialogoAberto(true);
+    }
+  }, [focoDialogo]);
 
   const licaoMap = new Map(estado.licoes.map((l) => [l.numero, l]));
-  const emAndamento = estado.licoes.find((l) => l.status === "EM_ANDAMENTO");
-  const proxima = emAndamento ?? (estado.proximaLicao != null ? licaoMap.get(estado.proximaLicao) : undefined);
+  const proxima =
+    estado.licoes.find((l) => l.status === "EM_ANDAMENTO") ??
+    (estado.proximaLicao != null ? licaoMap.get(estado.proximaLicao) : undefined);
   const trilhaCompleta = estado.concluidas >= estado.total;
   const podeFinalizar = trilhaCompleta && !estado.questionarioFinalRespondido;
   const finalizado = estado.questionarioFinalRespondido || estado.participante.status === "FINALIZADO";
 
-  async function iniciarLicao(numero: number, mode: string) {
-    setIniciando(true);
-    try {
-      await chamarAPI("/api/licao/iniciar", { code: codigo, lessonNumber: numero, mode });
-      setDialogoAberto(false);
-      onAbrirLicao(numero, mode);
-    } catch (e) {
-      toast({ title: "Não foi possível abrir a lição", description: (e as Error).message, variant: "destructive" });
-    } finally {
-      setIniciando(false);
-    }
-  }
-
-  function abrirDialogoModo() {
-    if (!proxima) return;
+  function abrirDialogoModo(l: InfoLicao) {
+    setLicaoSelecionada(l);
     setModoSelecionado(null);
     setDialogoAberto(true);
+  }
+
+  function abrirLicao(numero: number, mode: string) {
+    setDialogoAberto(false);
+    onAbrirLicao(numero, mode);
+  }
+
+  async function concluirLicao(l: InfoLicao) {
+    setAvancando(true);
+    try {
+      await chamarAPI("/api/trilha/avancar", { code: codigo, lessonNumber: l.numero });
+      toast({ title: `Lição ${l.numero} concluída!`, description: "A próxima lição está liberada." });
+      onAvancou();
+    } catch (e) {
+      toast({ title: "Não foi possível concluir", description: (e as Error).message, variant: "destructive" });
+    } finally {
+      setAvancando(false);
+    }
   }
 
   const porcentagem = Math.round((estado.concluidas / estado.total) * 100);
@@ -69,23 +101,34 @@ export function Trilha({ estado, codigo, onAbrirLicao, onVerQuestionarioFinal, o
               <div>
                 <div className="fonte-marca text-xl leading-tight">Olá, {estado.participante.primeiroNome}</div>
                 <div className="text-xs text-creme/70 mt-0.5">
-                  {estado.participante.idioma} · código <span className="font-mono">{codigo}</span>
+                  {estado.participante.idioma} · {estado.participante.nivelCEFR || `nível ${estado.participante.nivelDeclarado}`} ·{" "}
+                  <span className="font-mono">{codigo}</span>
                 </div>
               </div>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onSair}
-              className="border-creme/30 text-creme/80 hover:bg-creme/10 hover:text-creme"
-            >
-              Sair
-            </Button>
+            <div className="flex flex-col items-end gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onSair}
+                className="border-creme/30 text-creme/80 hover:bg-creme/10 hover:text-creme bg-transparent"
+              >
+                Sair
+              </Button>
+              <BotaoCopiar
+                valor={codigo}
+                texto={`Meu código no Sabiá: ${codigo} — assim retomo minha trilha de idiomas.`}
+                rotulo="Copiar código"
+                className="[&_button]:border-creme/30 [&_button]:text-creme/80 [&_button:hover]:bg-creme/10"
+              />
+            </div>
           </div>
           <div className="mt-6">
             <div className="flex justify-between text-xs text-creme/80 mb-1.5">
               <span>Sua trilha</span>
-              <span>{estado.concluidas}/{estado.total} lições · {porcentagem}%</span>
+              <span>
+                {estado.concluidas}/{estado.total} lições concluídas · {porcentagem}%
+              </span>
             </div>
             <Progress value={porcentagem} className="h-2 bg-verde-d/60 [&>div]:bg-amarelo" />
           </div>
@@ -126,23 +169,23 @@ export function Trilha({ estado, codigo, onAbrirLicao, onVerQuestionarioFinal, o
             <CardContent className="p-6 flex flex-col sm:flex-row sm:items-center gap-4">
               <div className="flex-1">
                 <div className="text-xs uppercase tracking-[0.2em] text-ruivo font-semibold">
-                  {emAndamento ? "Lição em andamento" : "Próxima lição"}
+                  {proxima.status === "EM_ANDAMENTO" ? "Atividade em andamento" : "Próxima lição"}
                 </div>
                 <div className="fonte-marca text-2xl font-semibold mt-1">
                   Lição {proxima.numero} · {nivelDaLicao(proxima.numero)}
                 </div>
                 <p className="text-sm text-tinta/70 mt-1">
-                  {emAndamento
-                    ? "Você já começou esta lição — vamos continuar de onde parou."
-                    : "Escolha o modo de estudo e converse com a professora-IA."}
+                  {proxima.status === "EM_ANDAMENTO"
+                    ? "Você tem uma atividade aberta — vamos continuar de onde parou."
+                    : "Escolha um modo de estudo. Pratique quantas atividades quiser antes de avançar."}
                 </p>
               </div>
               <Button
                 size="lg"
-                onClick={abrirDialogoModo}
+                onClick={() => abrirDialogoModo(proxima)}
                 className="bg-verde hover:bg-verde/90 text-creme rounded-full px-7 h-12"
               >
-                {emAndamento ? "Continuar lição" : "Começar lição"}
+                {proxima.status === "EM_ANDAMENTO" ? "Continuar atividade" : "Praticar lição"}
                 <Play className="w-4 h-4 ml-1" aria-hidden />
               </Button>
             </CardContent>
@@ -174,40 +217,11 @@ export function Trilha({ estado, codigo, onAbrirLicao, onVerQuestionarioFinal, o
                       </div>
                       <span className="text-xs text-muted-foreground">{e.foco}</span>
                     </div>
-                    <div className="mt-3 grid grid-cols-2 gap-3">
+                    <div className="mt-3 grid gap-3 sm:grid-cols-2">
                       {e.licoes.map((n) => {
                         const l = licaoMap.get(n);
-                        const concluida = l?.status === "CONCLUIDA";
-                        const andamento = l?.status === "EM_ANDAMENTO";
-                        return (
-                          <div
-                            key={n}
-                            className={`rounded-xl border p-3.5 ${
-                              concluida
-                                ? "border-verde/40 bg-verde/5"
-                                : andamento
-                                  ? "border-ruivo/50 bg-ruivo/5"
-                                  : "border-border bg-white"
-                            }`}
-                          >
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                                Lição {n}
-                              </span>
-                              {concluida && <Check className="w-4 h-4 text-verde" aria-label="Concluída" />}
-                              {andamento && <span className="text-[10px] font-bold text-ruivo uppercase">retomar</span>}
-                            </div>
-                            <div className="mt-1 text-sm font-medium">{nivelDaLicao(n)}</div>
-                            {concluida && l && (
-                              <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-tinta/70">
-                                <span>Nota <b>{l.score?.toFixed(1)}</b></span>
-                                <span>{l.acertos} acerto(s)</span>
-                                <span>{formatarTempo(l.tempoSec || 0)}</span>
-                                {l.microRespondido && <span className="text-verde">✓ questionário</span>}
-                              </div>
-                            )}
-                          </div>
-                        );
+                        if (!l) return null;
+                        return <CartaoLicao key={n} licao={l} onPraticar={abrirDialogoModo} onConcluir={concluirLicao} avancando={avancando} />;
                       })}
                     </div>
                   </CardContent>
@@ -222,15 +236,18 @@ export function Trilha({ estado, codigo, onAbrirLicao, onVerQuestionarioFinal, o
       <Dialog open={dialogoAberto} onOpenChange={setDialogoAberto}>
         <DialogContent className="bg-white max-w-lg">
           <DialogHeader>
-            <DialogTitle className="fonte-marca">Escolha o modo de estudo</DialogTitle>
+            <DialogTitle className="fonte-marca">Escolha como praticar</DialogTitle>
             <DialogDescription>
-              Lição {proxima?.numero} · {proxima ? nivelDaLicao(proxima.numero) : ""} · {estado.participante.idioma}
+              Lição {licaoSelecionada?.numero} · {licaoSelecionada ? nivelDaLicao(licaoSelecionada.numero) : ""} ·{" "}
+              {estado.participante.idioma}
+              {licaoSelecionada?.revisao ? " · revisão" : ""}
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-3 sm:grid-cols-2 mt-2">
+          <div className="grid gap-3 sm:grid-cols-1 mt-2">
             {MODOS.map((m) => {
               const Ic = ICONES_MODO[m.id];
               const ativo = modoSelecionado === m.id;
+              const praticado = licaoSelecionada?.praticado.find((p) => p.mode === m.id);
               return (
                 <button
                   key={m.id}
@@ -241,9 +258,17 @@ export function Trilha({ estado, codigo, onAbrirLicao, onVerQuestionarioFinal, o
                   }`}
                   aria-pressed={ativo}
                 >
-                  <div className="flex items-center gap-2 font-semibold text-[15px]">
-                    <Ic className="w-4 h-4 text-ruivo" aria-hidden />
-                    {m.label}
+                  <div className="flex items-center justify-between gap-2 font-semibold text-[15px]">
+                    <span className="flex items-center gap-2">
+                      <Ic className="w-4 h-4 text-ruivo" aria-hidden />
+                      {m.label}
+                    </span>
+                    {praticado && (
+                      <span className="text-xs font-semibold text-verde">
+                        ✓ praticado {praticado.vezes > 1 ? `${praticado.vezes}×` : ""}
+                        {praticado.percentual != null ? ` · ${praticado.percentual}%` : praticado.nota != null ? ` · nota ${praticado.nota.toFixed(1)}` : ""}
+                      </span>
+                    )}
                   </div>
                   <p className="mt-1 text-xs text-tinta/70 leading-relaxed">{m.descricao}</p>
                 </button>
@@ -253,15 +278,114 @@ export function Trilha({ estado, codigo, onAbrirLicao, onVerQuestionarioFinal, o
           <div className="mt-4 flex justify-end gap-3">
             <Button variant="outline" onClick={() => setDialogoAberto(false)}>Cancelar</Button>
             <Button
-              disabled={!modoSelecionado || iniciando}
-              onClick={() => proxima && iniciarLicao(proxima.numero, modoSelecionado!)}
+              disabled={!modoSelecionado}
+              onClick={() => licaoSelecionada && abrirLicao(licaoSelecionada.numero, modoSelecionado!)}
               className="bg-verde hover:bg-verde/90 text-creme"
             >
-              {iniciando ? "Preparando..." : "Iniciar lição"}
+              Iniciar atividade
             </Button>
           </div>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+// ---------- Cartão de lição com modos praticados ----------
+
+function CartaoLicao({
+  licao,
+  onPraticar,
+  onConcluir,
+  avancando,
+}: {
+  licao: InfoLicao;
+  onPraticar: (l: InfoLicao) => void;
+  onConcluir: (l: InfoLicao) => void;
+  avancando: boolean;
+}) {
+  const concluida = licao.status === "CONCLUIDA";
+  const andamento = licao.status === "EM_ANDAMENTO";
+  const bloqueada = licao.status === "BLOQUEADA";
+  const praticadoAlgum = licao.praticado.length > 0;
+
+  return (
+    <div
+      className={`rounded-xl border p-3.5 ${
+        concluida
+          ? "border-verde/40 bg-verde/5"
+          : andamento
+            ? "border-ruivo/50 bg-ruivo/5"
+            : bloqueada
+              ? "border-border bg-white/60 opacity-70"
+              : "border-ruivo/40 bg-white"
+      }`}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Lição {licao.numero}
+        </span>
+        <span className="flex items-center gap-1.5">
+          {concluida && <Check className="w-4 h-4 text-verde" aria-label="Concluída" />}
+          {andamento && <span className="text-[10px] font-bold text-ruivo uppercase">em andamento</span>}
+          {concluida && licao.revisao && (
+            <button
+              type="button"
+              onClick={() => onPraticar(licao)}
+              className="text-[10px] font-bold text-verde uppercase hover:underline"
+            >
+              revisar
+            </button>
+          )}
+        </span>
+      </div>
+      <div className="mt-1 text-sm font-medium">{nivelDaLicao(licao.numero)}</div>
+
+      {/* modos praticados — o que já foi feito fica visível */}
+      {praticadoAlgum ? (
+        <ul className="mt-2 space-y-1">
+          {licao.praticado.map((p) => (
+            <li key={p.mode} className="text-xs text-tinta/70 flex items-center gap-1.5">
+              <Check className="w-3 h-3 text-verde shrink-0" aria-hidden />
+              <span className="font-medium">{p.rotulo || rotuloModo(p.mode)}</span>
+              {p.percentual != null ? (
+                <span>· {p.percentual}%</span>
+              ) : p.nota != null ? (
+                <span>· nota {p.nota.toFixed(1)}</span>
+              ) : null}
+              {p.vezes > 1 && <span className="text-tinta/50">({p.vezes}×)</span>}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <div className="mt-2 text-xs text-tinta/50">nenhuma atividade ainda</div>
+      )}
+
+      {/* ações por lição */}
+      <div className="mt-2.5 flex flex-wrap gap-2">
+        {!bloqueada && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => onPraticar(licao)}
+            className="h-7 text-xs border-verde/40 text-verde hover:bg-areia/60"
+          >
+            <RotateCcw className="w-3 h-3 mr-1" aria-hidden />
+            {concluida ? "Revisar" : "Praticar"}
+          </Button>
+        )}
+        {licao.podeAvancar && (
+          <Button
+            size="sm"
+            onClick={() => onConcluir(licao)}
+            disabled={avancando}
+            className="h-7 text-xs bg-ruivo hover:bg-ruivo/90 text-creme"
+          >
+            <ArrowRight className="w-3 h-3 mr-1" aria-hidden />
+            Concluir lição
+          </Button>
+        )}
+      </div>
     </div>
   );
 }

@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "@/hooks/use-toast";
 import { chamarAPI, type EstadoSessao } from "./tipos";
 import { IDIOMAS, NIVEIS_DECLARADOS } from "@/lib/pesquisa";
+import { BotaoCopiar } from "./BotaoCopiar";
 import { BookOpen, CalendarCheck, ShieldCheck, Sparkles, Feather } from "lucide-react";
 
 interface Props {
@@ -124,7 +125,7 @@ export function Landing({ onRegistrado, onRecuperado, onPesquisadora }: Props) {
                 size="lg"
                 variant="outline"
                 onClick={() => setEtapa("recuperar")}
-                className="border-creme/30 text-creme hover:bg-creme/10 hover:text-creme rounded-full px-8 h-12 text-base"
+                className="bg-transparent border-creme/30 text-creme hover:bg-creme/10 hover:text-creme rounded-full px-8 h-12 text-base"
               >
                 Já tenho um código
               </Button>
@@ -293,6 +294,13 @@ export function Landing({ onRegistrado, onRecuperado, onPesquisadora }: Props) {
                 <div className="mt-6 mx-auto w-fit rounded-2xl border-2 border-dashed border-ruivo/60 bg-areia/60 px-10 py-6">
                   <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Seu código</div>
                   <div className="font-mono text-3xl sm:text-4xl font-bold tracking-wide mt-1 text-verde">{codigoGerado}</div>
+                </div>
+                <div className="mt-4 flex justify-center">
+                  <BotaoCopiar
+                    valor={codigoGerado}
+                    texto={`Meu código no Sabiá: ${codigoGerado} — app de prática de idiomas da pesquisa (MBA USP/Esalq).`}
+                    rotulo="Copiar código"
+                  />
                 </div>
                 <Button
                   size="lg"

@@ -6,8 +6,18 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
-import { chamarAPI, formatarTempo, type Mensagem, type DadosLicao, type ResultadoEncerrar } from "./tipos";
-import { BookOpen, Check, CircleHelp, Clock, Loader2, Send, StopCircle } from "lucide-react";
+import {
+  chamarAPI,
+  formatarTempo,
+  type Mensagem,
+  type DadosLicao,
+  type ResultadoEncerrar,
+  type Exercicio,
+  type AberturaResposta,
+} from "./tipos";
+import { Atividade } from "./Atividade";
+import { rotuloModo } from "@/lib/pesquisa";
+import { BookOpen, Check, CircleHelp, Clock, Loader2, Send, StopCircle, WifiOff } from "lucide-react";
 
 interface Props {
   codigo: string;
@@ -17,24 +27,13 @@ interface Props {
   onVoltar: () => void;
 }
 
-interface AberturaResposta {
-  sessionId: string;
-  licao: DadosLicao;
-  mensagens: Mensagem[];
-  retomada: boolean;
-}
-
-const ROTULO_MODO: Record<string, string> = {
-  conversa: "Conversa",
-  escrita: "Escrita",
-  completar: "Completar frase",
-  jogo: "Jogo",
-};
-
 export function Licao({ codigo, lessonNumber, mode, onEncerrada, onVoltar }: Props) {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [licao, setLicao] = useState<DadosLicao | null>(null);
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
+  const [exercicios, setExercicios] = useState<Exercicio[]>([]);
+  const [revisao, setRevisao] = useState(false);
+  const [provedor, setProvedor] = useState<string | undefined>();
   const [resposta, setResposta] = useState("");
   const [pensando, setPensando] = useState(false);
   const [encerrando, setEncerrando] = useState(false);
@@ -43,7 +42,9 @@ export function Licao({ codigo, lessonNumber, mode, onEncerrada, onVoltar }: Pro
   const fimRef = useRef<HTMLDivElement>(null);
   const carregado = useRef(false);
 
-  // carrega/retoma a lição
+  const eConversa = mode === "conversa" || mode === "escrita";
+
+  // carrega/retoma a atividade
   useEffect(() => {
     if (carregado.current) return;
     carregado.current = true;
@@ -57,6 +58,9 @@ export function Licao({ codigo, lessonNumber, mode, onEncerrada, onVoltar }: Pro
         setSessionId(r.sessionId);
         setLicao(r.licao);
         setMensagens(r.mensagens);
+        setExercicios(r.exercicios);
+        setRevisao(r.revisao);
+        setProvedor(r.provedor);
       } catch (e) {
         toast({ title: "Erro ao abrir a lição", description: (e as Error).message, variant: "destructive" });
         onVoltar();
@@ -72,10 +76,10 @@ export function Licao({ codigo, lessonNumber, mode, onEncerrada, onVoltar }: Pro
     return () => clearInterval(t);
   }, []);
 
-  // rola para a última mensagem
+  // rola para a última mensagem (só conversa)
   useEffect(() => {
-    fimRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [mensagens, pensando]);
+    if (eConversa) fimRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [mensagens, pensando, eConversa]);
 
   async function enviar() {
     const texto = resposta.trim();
@@ -95,6 +99,7 @@ export function Licao({ codigo, lessonNumber, mode, onEncerrada, onVoltar }: Pro
         content: texto,
       });
       setMensagens((m) => [...m, r.mensagem]);
+      setProvedor(r.mensagem ? undefined : undefined);
     } catch (e) {
       toast({ title: "A professora não conseguiu responder", description: (e as Error).message + " — tente reenviar.", variant: "destructive" });
       setResposta(texto);
@@ -134,7 +139,7 @@ export function Licao({ codigo, lessonNumber, mode, onEncerrada, onVoltar }: Pro
       <div className="min-h-screen bg-creme flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-8 h-8 animate-spin text-verde mx-auto" aria-hidden />
-          <p className="mt-3 text-sm text-tinta/70">A professora está preparando a lição...</p>
+          <p className="mt-3 text-sm text-tinta/70">A professora está preparando a atividade...</p>
         </div>
       </div>
     );
@@ -155,8 +160,13 @@ export function Licao({ codigo, lessonNumber, mode, onEncerrada, onVoltar }: Pro
                   {licao?.nivel}
                 </Badge>
                 <Badge variant="outline" className="border-creme/40 text-creme/90">
-                  {ROTULO_MODO[mode]}
+                  {rotuloModo(mode)}
                 </Badge>
+                {revisao && (
+                  <Badge variant="outline" className="border-creme/40 text-creme/90">
+                    revisão
+                  </Badge>
+                )}
               </div>
               <h1 className="fonte-marca text-lg sm:text-xl font-semibold mt-1.5 truncate">
                 {licao?.tema}
@@ -170,7 +180,7 @@ export function Licao({ codigo, lessonNumber, mode, onEncerrada, onVoltar }: Pro
               <Button
                 size="sm"
                 onClick={encerrar}
-                disabled={encerrando || mensagens.length === 0}
+                disabled={encerrando || (eConversa ? mensagens.length === 0 : false)}
                 className="bg-ruivo hover:bg-ruivo/90 text-creme h-8"
               >
                 {encerrando ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden /> : <StopCircle className="w-4 h-4" aria-hidden />}
@@ -192,85 +202,107 @@ export function Licao({ codigo, lessonNumber, mode, onEncerrada, onVoltar }: Pro
         </div>
       </header>
 
-      {/* área de conversa */}
-      <main className="flex-1 mx-auto w-full max-w-2xl px-4 sm:px-6 py-5">
-        <ScrollArea className="h-full">
-          <div className="space-y-4 pb-4">
-            {mensagens.map((m) =>
-              m.role === "ALUNO" ? (
-                <div key={m.id} className="flex justify-end">
-                  <div className="max-w-[85%] rounded-2xl rounded-br-md bg-verde text-creme px-4 py-3 text-[15px] leading-relaxed whitespace-pre-wrap">
-                    {m.content}
-                  </div>
-                </div>
-              ) : (
-                <CartaProfessora key={m.id} mensagem={m} />
-              )
-            )}
-            {pensando && (
-              <div className="flex items-center gap-2 text-sm text-tinta/60 pl-1">
-                <Loader2 className="w-4 h-4 animate-spin text-ruivo" aria-hidden />
-                a professora está escrevendo...
-              </div>
-            )}
-            <div ref={fimRef} />
-          </div>
-        </ScrollArea>
-      </main>
-
-      {/* entrada */}
-      <div className="sticky bottom-0 bg-creme/95 backdrop-blur border-t border-verde/15">
-        <div className="mx-auto max-w-2xl px-4 sm:px-6 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-          <div className="flex gap-2 items-end">
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              onClick={pedirDica}
-              disabled={pensando || encerrando}
-              className="shrink-0 border-verde/40 text-verde hover:bg-areia"
-              aria-label="Pedir dica"
-              title="Pedir dica"
-            >
-              <CircleHelp className="w-5 h-5" aria-hidden />
-            </Button>
-            <Textarea
-              value={resposta}
-              onChange={(e) => setResposta(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  enviar();
-                }
-              }}
-              placeholder="Escreva sua resposta no idioma (ou em português, no começo)..."
-              className="min-h-[52px] max-h-40 bg-white resize-none text-[15px]"
-              rows={2}
-              aria-label="Sua resposta"
-              disabled={pensando || encerrando}
-            />
-            <Button
-              type="button"
-              onClick={enviar}
-              disabled={!resposta.trim() || pensando || encerrando}
-              className="shrink-0 bg-ruivo hover:bg-ruivo/90 text-creme h-[52px] px-4"
-              aria-label="Enviar resposta"
-            >
-              <Send className="w-5 h-5" aria-hidden />
-            </Button>
-          </div>
-          <p className="mt-1.5 text-[11px] text-muted-foreground">
-            Enter envia · Shift+Enter quebra linha · dica conta como “dicas usadas” nas métricas
-          </p>
+      {/* aviso discreto de modo offline (fallback local) */}
+      {provedor === "local" && (
+        <div className="bg-amarelo/20 text-tinta text-xs px-4 py-2 flex items-center gap-2 border-b border-amarelo/40">
+          <WifiOff className="w-3.5 h-3.5 shrink-0" aria-hidden />
+          <span>
+            A IA ao vivo não respondeu agora — a atividade segue com o gerador local do Sabiá (conteúdo da lição, sem IA).
+          </span>
         </div>
-      </div>
+      )}
+
+      {/* CONVERSA: chat natural e contínuo */}
+      {eConversa && (
+        <>
+          <main className="flex-1 mx-auto w-full max-w-2xl px-4 sm:px-6 py-5">
+            <ScrollArea className="h-full">
+              <div className="space-y-4 pb-4">
+                {mensagens.map((m) =>
+                  m.role === "ALUNO" ? (
+                    <div key={m.id} className="flex justify-end">
+                      <div className="max-w-[85%] rounded-2xl rounded-br-md bg-verde text-creme px-4 py-3 text-[15px] leading-relaxed whitespace-pre-wrap">
+                        {m.content}
+                      </div>
+                    </div>
+                  ) : (
+                    <CartaProfessora key={m.id} mensagem={m} />
+                  )
+                )}
+                {pensando && (
+                  <div className="flex items-center gap-2 text-sm text-tinta/60 pl-1">
+                    <Loader2 className="w-4 h-4 animate-spin text-ruivo" aria-hidden />
+                    a professora está escrevendo...
+                  </div>
+                )}
+                <div ref={fimRef} />
+              </div>
+            </ScrollArea>
+          </main>
+
+          <div className="sticky bottom-0 bg-creme/95 backdrop-blur border-t border-verde/15">
+            <div className="mx-auto max-w-2xl px-4 sm:px-6 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+              <div className="flex gap-2 items-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={pedirDica}
+                  disabled={pensando || encerrando}
+                  className="shrink-0 border-verde/40 text-verde hover:bg-areia"
+                  aria-label="Pedir dica"
+                  title="Pedir dica"
+                >
+                  <CircleHelp className="w-5 h-5" aria-hidden />
+                </Button>
+                <Textarea
+                  value={resposta}
+                  onChange={(e) => setResposta(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      enviar();
+                    }
+                  }}
+                  placeholder="Converse no idioma que está aprendendo (ou em português, no começo)..."
+                  className="min-h-[52px] max-h-40 bg-white resize-none text-[15px]"
+                  rows={2}
+                  aria-label="Sua resposta"
+                  disabled={pensando || encerrando}
+                />
+                <Button
+                  type="button"
+                  onClick={enviar}
+                  disabled={!resposta.trim() || pensando || encerrando}
+                  className="shrink-0 bg-ruivo hover:bg-ruivo/90 text-creme h-[52px] px-4"
+                  aria-label="Enviar resposta"
+                >
+                  <Send className="w-5 h-5" aria-hidden />
+                </Button>
+              </div>
+              <p className="mt-1.5 text-[11px] text-muted-foreground">
+                Enter envia · Shift+Enter quebra linha · dica conta como “dicas usadas” nas métricas
+              </p>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* EXERCÍCIOS (completar/jogo): jogador com mecânicas clicáveis */}
+      {!eConversa && sessionId && (
+        <Atividade
+          sessionId={sessionId}
+          exercicios={exercicios}
+          modo={mode}
+          onEncerrar={encerrar}
+        />
+      )}
     </div>
   );
 }
 
 function CartaProfessora({ mensagem }: { mensagem: Mensagem }) {
-  const temEstrutura =
-    mensagem.correcao || mensagem.explicacao || mensagem.exemplo || mensagem.proximoExercicio;
+  const temEstrutura = mensagem.correcao || mensagem.explicacao || mensagem.exemplo || mensagem.proximoExercicio;
   return (
     <div className="flex justify-start">
       <div className="max-w-[92%] w-fit rounded-2xl rounded-bl-md bg-white border border-verde/20 px-4 py-3.5 shadow-sm">
@@ -278,6 +310,7 @@ function CartaProfessora({ mensagem }: { mensagem: Mensagem }) {
           <p className="text-[15px] leading-relaxed whitespace-pre-wrap">{mensagem.content}</p>
         ) : (
           <div className="space-y-3">
+            <p className="text-[15px] leading-relaxed whitespace-pre-wrap">{mensagem.content}</p>
             {mensagem.correcao && (
               <Bloco titulo="Correção" tom="ruivo">
                 {mensagem.correcao}

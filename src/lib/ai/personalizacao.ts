@@ -4,6 +4,7 @@
 
 import { db } from "@/lib/db";
 import { NIVEIS_DECLARADOS, nivelDaLicao } from "@/lib/pesquisa";
+import { nivelCEFRDeclarado } from "@/lib/cefr";
 
 export async function construirPerfilParticipante(participantId: string): Promise<string> {
   const p = await db.participant.findUnique({
@@ -71,19 +72,49 @@ export async function construirPerfilParticipante(participantId: string): Promis
   return linhas.join("\n");
 }
 
-// Contexto completo de uma lição (dados do catálogo + nível por faixa)
-export async function obterContextoAula(language: string, lessonNumber: number, mode: string, perfil?: string) {
+// Contexto completo de uma lição (dados do catálogo + nível CEFR declarado
+// + conteúdos anteriores p/ consistência entre modalidades).
+export async function obterContextoAula(
+  language: string,
+  lessonNumber: number,
+  mode: string,
+  perfil?: string,
+  selfLevel?: number
+) {
   const lesson = await db.lesson.findUnique({
     where: { language_number: { language, number: lessonNumber } },
   });
   if (!lesson) return null;
+
+  // conteúdos das lições anteriores da trilha (consistência pedagógica)
+  const anteriores = await db.lesson.findMany({
+    where: { language, number: { lt: lessonNumber } },
+    orderBy: { number: "asc" },
+    select: { number: true, theme: true, content: true },
+    take: lessonNumber - 1,
+  });
+  const conteudoAnterior = anteriores
+    .slice(-3) // só as 3 mais recentes, para não inchear o prompt
+    .flatMap((l) => {
+      try {
+        return JSON.parse(l.content) as string[];
+      } catch {
+        return [];
+      }
+    })
+    .slice(0, 12);
+
+  const cefr = selfLevel ? nivelCEFRDeclarado(selfLevel) : undefined;
   return {
     idioma: language,
     aula: lessonNumber,
     nivel: lesson.level || nivelDaLicao(lessonNumber),
+    nivelCEFR: cefr?.cefr,
+    diretivaNivel: cefr?.diretiva,
     tema: lesson.theme,
     objetivo: lesson.objective,
     conteudo: JSON.parse(lesson.content) as string[],
+    conteudoAnterior,
     modo: mode,
     perfil,
   };

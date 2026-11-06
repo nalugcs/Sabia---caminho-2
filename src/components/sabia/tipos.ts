@@ -2,14 +2,18 @@
 
 export interface InfoLicao {
   numero: number;
-  status: "BLOQUEADA" | "EM_ANDAMENTO" | "CONCLUIDA";
-  sessionId?: string;
-  modo?: string;
-  score?: number | null;
-  acertos?: number;
-  interacoes?: number;
-  tempoSec?: number;
-  microRespondido?: boolean;
+  status: "BLOQUEADA" | "DISPONIVEL" | "EM_ANDAMENTO" | "CONCLUIDA";
+  emAndamento?: { sessionId: string; mode: string };
+  praticado: {
+    mode: string;
+    rotulo: string;
+    nota: number | null;
+    percentual: number | null;
+    vezes: number;
+    ultima: string;
+  }[];
+  podeAvancar: boolean;
+  revisao: boolean;
 }
 
 export interface EstadoSessao {
@@ -18,6 +22,7 @@ export interface EstadoSessao {
     primeiroNome: string;
     idioma: string;
     nivelDeclarado: number;
+    nivelCEFR?: string;
     status: string;
   };
   licoes: InfoLicao[];
@@ -47,13 +52,68 @@ export interface DadosLicao {
   conteudo: string[];
 }
 
+export interface Exercicio {
+  id: string;
+  ordem: number;
+  tipo: "multipla" | "digitada" | "ordenar" | "associar" | string;
+  dificuldade: string;
+  enunciado: string;
+  alternativas?: string[];
+  palavras?: string[];
+  colunaEsq?: string[];
+  colunaDir?: string[];
+  respondida: boolean;
+  correta?: boolean | null;
+  gabarito?: string;
+  nota?: number | null;
+  explicacao?: string;
+  respostaAluno?: unknown;
+}
+
+export interface RespostaExercicio {
+  exercicio: Exercicio;
+  correta: boolean;
+  nota: number;
+  gabarito: string | { esq: string; dir: string }[] | unknown;
+  explicacao: string;
+  progresso: { respondidas: number; total: number; acertos: number };
+  concluida: boolean;
+}
+
+export interface MetricasSessao {
+  tipo: "exercicios" | "conversa";
+  total: number;
+  acertos: number;
+  erros: number;
+  percentual: number;
+  notaMedia: number;
+  interacoes: number;
+}
+
 export interface ResultadoEncerrar {
   score: number;
-  acertos: number;
-  interacoes: number;
+  metricas: MetricasSessao;
+  incompletas: number;
   dicas: number;
   tempoSec: number;
   feedbackFinal: string;
+  exercicios: Exercicio[];
+  acoes: {
+    podeAvancar: boolean;
+    proximaLicao: number | null;
+    revisao: boolean;
+  };
+}
+
+export interface AberturaResposta {
+  retomada: boolean;
+  revisao: boolean;
+  sessionId: string;
+  modo: string;
+  licao: DadosLicao;
+  mensagens: Mensagem[];
+  exercicios: Exercicio[];
+  provedor?: string;
 }
 
 export async function chamarAPI<T = unknown>(

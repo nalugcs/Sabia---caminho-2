@@ -29,6 +29,7 @@ export async function GET(req: Request) {
       cabecalho = [
         "codigo", "idioma", "idade", "nivel_declarado", "licao", "nivel_licao", "modo",
         "nota", "acertos", "interacoes", "dicas", "tempo_seg", "provedor", "micro_respondido", "data_encerramento",
+        "exercicios_respondidos", "exercicios_corretos", "percentual_acerto", "revisao",
       ];
       linhas = sessoes.map((s) => [
         s.participant.code,
@@ -46,6 +47,10 @@ export async function GET(req: Request) {
         s.provider || "",
         s.micro ? "1" : "0",
         (s.endedAt || s.startedAt).toISOString(),
+        String(s.exercisesTotal),
+        String(s.exercisesCorrect),
+        s.exercisesTotal > 0 ? String(Math.round((s.exercisesCorrect / s.exercisesTotal) * 100)) : "",
+        s.isReview ? "1" : "0",
       ]);
     } else if (tipo === "micro") {
       const micros = await db.microQuestionnaire.findMany({

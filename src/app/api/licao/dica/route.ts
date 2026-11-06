@@ -2,12 +2,13 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { sessionIdSchema, mensagemDeErro } from "@/lib/schemas";
 import { gerarTexto } from "@/lib/ai/providers";
-import { promptDica } from "@/lib/ai/prompts";
-import { parseFeedback } from "@/lib/ai/parse";
-import { obterContextoAula } from "@/lib/ai/personalizacao";
+import { promptDicaConversa } from "@/lib/ai/prompts";
+import { extrairNotaOculta } from "@/lib/ai/parse";
+import { construirPerfilParticipante, obterContextoAula } from "@/lib/ai/personalizacao";
 import { formatarMensagem } from "@/lib/formatar";
 
 // Dica pedagógica: ajuda sem entregar a resposta (métrica "dicas usadas").
+// Conversa: dica da IA no chat. Exercícios: a dica da própria questão (sem IA).
 export async function POST(req: Request) {
   try {
     const analise = sessionIdSchema.safeParse(await req.json());
@@ -22,25 +23,43 @@ export async function POST(req: Request) {
     });
     if (!session) return NextResponse.json({ erro: "Sessão não encontrada." }, { status: 404 });
     if (session.status !== "EM_ANDAMENTO") {
-      return NextResponse.json({ erro: "Esta lição já foi encerrada." }, { status: 409 });
+      return NextResponse.json({ erro: "Esta atividade já foi encerrada." }, { status: 409 });
     }
 
+    // Modo exercício: dica determinística da questão atual (a primeira não respondida)
+    if (session.mode !== "conversa" && session.mode !== "escrita") {
+      const pendente = await db.exercise.findFirst({
+        where: { sessionId, respondidoEm: null },
+        orderBy: { ordem: "asc" },
+      });
+      if (!pendente) return NextResponse.json({ erro: "Não há questões pendentes." }, { status: 400 });
+      await db.lessonSession.update({
+        where: { id: sessionId },
+        data: { hintsUsed: { increment: 1 } },
+      });
+      return NextResponse.json({ dica: pendente.dica || "Releia o enunciado e o vocabulário da lição." });
+    }
+
+    // Conversa: dica da IA
+    const perfil = await construirPerfilParticipante(session.participantId);
     const ctx = await obterContextoAula(
       session.participant.language,
       session.lessonNumber,
-      session.mode
+      session.mode,
+      perfil,
+      session.participant.selfLevel
     );
     if (!ctx) return NextResponse.json({ erro: "Lição não encontrada." }, { status: 404 });
 
-    const { texto, provedor, latencyMs } = await gerarTexto(promptDica(ctx));
-    const fb = parseFeedback(texto);
+    const { texto, provedor, latencyMs } = await gerarTexto(promptDicaConversa(ctx));
+    const { exibicao, nota } = extrairNotaOculta(texto);
 
     const msg = await db.chatMessage.create({
       data: {
         sessionId,
         role: "PROFESSORA",
-        content: fb.exibicao,
-        explicacao: fb.explicacao || fb.exibicao,
+        content: exibicao,
+        nota,
         provider: provedor,
         latencyMs,
       },

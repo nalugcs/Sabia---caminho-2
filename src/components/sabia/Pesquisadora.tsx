@@ -116,7 +116,7 @@ export function Pesquisadora() {
             </div>
             <h1 className="fonte-marca text-2xl font-semibold mt-1">Área da pesquisadora</h1>
           </div>
-          <Button variant="outline" className="border-creme/30 text-creme/80 hover:bg-creme/10 hover:text-creme" onClick={() => setDados(null)}>
+          <Button variant="outline" className="bg-transparent border-creme/30 text-creme/80 hover:bg-creme/10 hover:text-creme" onClick={() => setDados(null)}>
             Sair
           </Button>
         </div>
