@@ -1,14 +1,19 @@
 import { db } from "@/lib/db";
 import { PIN_PESQUISADORA } from "@/lib/pesquisa";
+import { pinCorreto, permitir, ipDe } from "@/lib/security";
 
 // Exportação CSV pseudonimizada para análise (código, nunca nome).
 // ?tipo=metricas | micro | final
 export async function GET(req: Request) {
   try {
+    // rate limit: 10 tentativas de PIN por minuto por IP (Fase A)
+    if (!permitir(`${new URL(req.url).pathname}:${ipDe(req)}`, 10)) {
+      return new Response("Muitas tentativas. Aguarde um minuto.", { status: 429 });
+    }
     const url = new URL(req.url);
     const pin = req.headers.get("x-researcher-pin") || "";
     const tipo = url.searchParams.get("tipo") || "metricas";
-    if (!PIN_PESQUISADORA || pin !== PIN_PESQUISADORA) {
+    if (!PIN_PESQUISADORA || !pinCorreto(pin, PIN_PESQUISADORA)) {
       return new Response("PIN inválido.", { status: 401 });
     }
 

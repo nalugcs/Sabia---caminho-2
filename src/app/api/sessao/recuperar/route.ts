@@ -1,15 +1,21 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { TRILHA_LICOES } from "@/lib/pesquisa";
+import { recuperarSchema } from "@/lib/schemas";
+import { permitir, ipDe } from "@/lib/security";
 
 // Recuperação de sessão pelo código do participante (mesmo link, outro dia/dispositivo).
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    const code = String(body.code || "").trim().toUpperCase();
-    if (!code) {
+    // rate limit: 10 tentativas por minuto por IP (código SAB-XXXX não é secreto forte)
+    if (!permitir(`${new URL(req.url).pathname}:${ipDe(req)}`, 10)) {
+      return NextResponse.json({ erro: "Muitas tentativas. Aguarde um minuto." }, { status: 429 });
+    }
+    const analise = recuperarSchema.safeParse(await req.json());
+    if (!analise.success) {
       return NextResponse.json({ erro: "Informe seu código de participante." }, { status: 400 });
     }
+    const code = analise.data.code;
 
     const p = await db.participant.findUnique({
       where: { code },

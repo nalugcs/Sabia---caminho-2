@@ -1,12 +1,17 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { PIN_PESQUISADORA, TRILHA_LICOES } from "@/lib/pesquisa";
+import { pinCorreto, permitir, ipDe } from "@/lib/security";
 
 // Painel da pesquisadora — dados pseudonimizados (código, nunca nome).
 export async function GET(req: Request) {
   try {
+    // rate limit: 10 tentativas de PIN por minuto por IP (Fase A)
+    if (!permitir(`${new URL(req.url).pathname}:${ipDe(req)}`, 10)) {
+      return NextResponse.json({ erro: "Muitas tentativas. Aguarde um minuto." }, { status: 429 });
+    }
     const pin = req.headers.get("x-researcher-pin") || "";
-    if (!PIN_PESQUISADORA || pin !== PIN_PESQUISADORA) {
+    if (!PIN_PESQUISADORA || !pinCorreto(pin, PIN_PESQUISADORA)) {
       return NextResponse.json({ erro: "PIN inválido." }, { status: 401 });
     }
 

@@ -1,40 +1,24 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { IDIOMAS, gerarCodigoParticipante } from "@/lib/pesquisa";
+import { gerarCodigoParticipante } from "@/lib/pesquisa";
+import { registroSchema, mensagemDeErro } from "@/lib/schemas";
+import { permitir, ipDe } from "@/lib/security";
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    const firstName = String(body.firstName || "").trim();
-    const lastName = String(body.lastName || "").trim();
-    const age = Number(body.age);
-    const selfLevel = Number(body.selfLevel);
-    const language = String(body.language || "");
-    const tceAccepted = body.tceAccepted === true;
-
-    if (!firstName || !lastName) {
-      return NextResponse.json({ erro: "Informe nome e sobrenome." }, { status: 400 });
-    }
-    if (!Number.isInteger(age) || age < 18 || age > 120) {
-      return NextResponse.json(
-        { erro: "A pesquisa é restrita a participantes maiores de 18 anos." },
-        { status: 400 }
-      );
-    }
-    if (!Number.isInteger(selfLevel) || selfLevel < 1 || selfLevel > 5) {
-      return NextResponse.json({ erro: "Selecione seu nível (1 a 5)." }, { status: 400 });
-    }
-    if (!IDIOMAS.includes(language as (typeof IDIOMAS)[number])) {
-      return NextResponse.json({ erro: "Selecione um dos três idiomas." }, { status: 400 });
-    }
-    if (!tceAccepted) {
-      return NextResponse.json(
-        { erro: "É necessário aceitar o Termo de Consentimento (TCLE)." },
-        { status: 400 }
-      );
+    // rate limit: 20 cadastros por minuto por IP (Fase A)
+    if (!permitir(`${new URL(req.url).pathname}:${ipDe(req)}`, 20)) {
+      return NextResponse.json({ erro: "Muitas tentativas. Aguarde um minuto." }, { status: 429 });
     }
 
-    // código único de participante
+    const analise = registroSchema.safeParse(await req.json());
+    if (!analise.success) {
+      return NextResponse.json({ erro: mensagemDeErro(analise) }, { status: 400 });
+    }
+    const { firstName, lastName, age, selfLevel, language } = analise.data;
+    // (tceAccepted: true garantido pelo schema — z.literal(true))
+
+    // código único de participante (retry em caso de colisão raríssima)
     let code = gerarCodigoParticipante();
     for (let i = 0; i < 5; i++) {
       const existe = await db.participant.findUnique({ where: { code } });

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { mensagemSchema, mensagemDeErro } from "@/lib/schemas";
 import { gerarTexto } from "@/lib/ai/providers";
 import { promptMensagemAula } from "@/lib/ai/prompts";
 import { parseFeedback } from "@/lib/ai/parse";
@@ -9,14 +10,11 @@ import { formatarMensagem } from "@/lib/formatar";
 // Envia a resposta do aluno e devolve a correção da professora-IA.
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    const sessionId = String(body.sessionId || "");
-    const content = String(body.content || "").trim();
-
-    if (!sessionId) return NextResponse.json({ erro: "Sessão inválida." }, { status: 400 });
-    if (!content || content.length > 2000) {
-      return NextResponse.json({ erro: "Escreva uma resposta (até 2000 caracteres)." }, { status: 400 });
+    const analise = mensagemSchema.safeParse(await req.json());
+    if (!analise.success) {
+      return NextResponse.json({ erro: mensagemDeErro(analise) }, { status: 400 });
     }
+    const { sessionId, content } = analise.data;
 
     const session = await db.lessonSession.findUnique({
       where: { id: sessionId },

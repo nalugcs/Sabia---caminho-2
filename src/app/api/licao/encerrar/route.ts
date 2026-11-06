@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { sessionIdSchema, mensagemDeErro } from "@/lib/schemas";
 import { gerarTexto } from "@/lib/ai/providers";
 import { promptFeedbackFinal } from "@/lib/ai/prompts";
 import { limparMarkdown } from "@/lib/ai/markdown";
@@ -9,9 +10,11 @@ import { construirPerfilParticipante, obterContextoAula } from "@/lib/ai/persona
 // A resposta devolve o feedback já limpo de Markdown para exibição em texto plano.
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    const sessionId = String(body.sessionId || "");
-    if (!sessionId) return NextResponse.json({ erro: "Sessão inválida." }, { status: 400 });
+    const analise = sessionIdSchema.safeParse(await req.json());
+    if (!analise.success) {
+      return NextResponse.json({ erro: mensagemDeErro(analise) }, { status: 400 });
+    }
+    const sessionId = analise.data.sessionId;
 
     const session = await db.lessonSession.findUnique({
       where: { id: sessionId },
